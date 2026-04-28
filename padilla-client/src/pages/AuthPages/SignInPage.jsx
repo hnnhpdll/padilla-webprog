@@ -62,9 +62,11 @@ const SignInPage = () => {
           </button>
         </div>
  
-        <Button type="submit" variant="primary" className={actionButtonClassName}>
-          Log In
-        </Button>
+        <Link to="/dashboard">
+  <Button variant="contained" className={actionButtonClassName}>
+    Log In
+  </Button>
+</Link>
  
         <div className="grid gap-3 pt-2 sm:grid-cols-2">
           <Button type="button" variant="secondary" className={actionButtonClassName}>
