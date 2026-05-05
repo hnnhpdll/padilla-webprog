@@ -1,6 +1,6 @@
 import Button from '../../components/Button.jsx';
 import { Link } from 'react-router-dom';
-import articles from '../../assets/article-content.js'; // Articles for full pages
+import articles from "../../data/article-content";// Articles for full pages
 import project1 from '../../assets/images/project1.png';
 import project2 from '../../assets/images/project2.png';
 import project3 from '../../assets/images/project3.png';
