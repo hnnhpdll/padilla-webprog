@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { DataGrid } from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
 import {
@@ -15,52 +15,91 @@ import {
   MenuItem,
 } from "@mui/material";
 
-import usersData from "../../data/users.json";
-
-// ---------------- MAP JSON ----------------
-const mappedUsers = usersData.map((user, index) => ({
-  id: user.id ?? index + 1,
-  firstName: user.firstName,
-  lastName: user.lastName,
-  age: user.age,
-  gender: user.gender,
-  contactNumber: user.contactNumber,
-  email: user.email,
-  role: user.role,
-  username: user.username,
-  address: user.address,
-  status: user.isActive ? "Active" : "Inactive",
-}));
+import axios from "axios";
 
 function UsersPage() {
-  const [users, setUsers] = React.useState(mappedUsers);
+  const [users, setUsers] = React.useState([]);
   const [open, setOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState(null);
-
-  // ---------------- SEARCH / FILTER / SORT ----------------
   const [search, setSearch] = React.useState("");
-  const [filters, setFilters] = React.useState({
-    role: "",
-    status: "",
-  });
-  const [sortBy, setSortBy] = React.useState("none");
+  const [errors, setErrors] = React.useState({});
 
-  // ---------------- FORM ----------------
   const [form, setForm] = React.useState({
     firstName: "",
     lastName: "",
+    username: "",
     age: "",
     gender: "",
-    contactNumber: "",
-    email: "",
-    role: "",
-    username: "",
-    password: "",
+    contactNumber: "+639",
     address: "",
-    status: "Active",
+    email: "",
+    password: "",
+    type: "viewer",
   });
 
-  const [errors, setErrors] = React.useState({});
+  // ---------------- FETCH USERS ----------------
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await axios.get("http://localhost:8000/api/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setUsers(
+          res.data.users.map((user) => ({
+            id: user._id,
+            userId: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
+            email: user.email,
+            role: user.type || "N/A",
+            status: user.isActive ? "Active" : "Disabled", // ✅ UPDATED
+          }))
+        );
+      } catch (err) {
+        console.log(err.message);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  // ---------------- VALIDATION ----------------
+  const validateForm = () => {
+    let newErrors = {};
+
+    if (!form.firstName.trim()) newErrors.firstName = "Required";
+    if (!form.lastName.trim()) newErrors.lastName = "Required";
+
+    if (!form.username.trim()) {
+      newErrors.username = "Required";
+    } else if (form.username.includes(" ")) {
+      newErrors.username = "No spaces allowed";
+    }
+
+    if (!form.age || isNaN(form.age)) {
+      newErrors.age = "Age must be a number";
+    }
+
+    if (!form.gender) newErrors.gender = "Required";
+
+    if (!form.contactNumber || !/^\+639\d{9}$/.test(form.contactNumber)) {
+      newErrors.contactNumber = "Invalid PH number";
+    }
+
+    if (!form.address.trim()) newErrors.address = "Required";
+    if (!form.email.trim()) newErrors.email = "Required";
+
+    if (!editingUser && (!form.password || form.password.length < 8)) {
+      newErrors.password = "Min 8 characters";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   // ---------------- TOGGLE STATUS ----------------
   const handleToggleStatus = (id) => {
@@ -69,45 +108,25 @@ function UsersPage() {
         u.id === id
           ? {
               ...u,
-              status: u.status === "Active" ? "Inactive" : "Active",
+              status: u.status === "Active" ? "Disabled" : "Active",
             }
           : u
       )
     );
   };
 
-  // ---------------- VALIDATION ----------------
-  const validateForm = () => {
-    let newErrors = {};
+  // ---------------- DELETE USER ----------------
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`http://localhost:8000/api/users/${id}`);
 
-    if (!form.firstName) newErrors.firstName = "Required";
-    if (!form.lastName) newErrors.lastName = "Required";
-
-    if (!form.age || isNaN(form.age))
-      newErrors.age = "Age must be a number";
-
-    if (!form.contactNumber || !/^\+63\d{10}$/.test(form.contactNumber))
-      newErrors.contactNumber = "Must start with +63 and 10 digits";
-
-    if (!form.email) newErrors.email = "Email is required";
-
-    if (!form.username) {
-      newErrors.username = "Required";
-    } else if (form.username.includes(" ")) {
-      newErrors.username = "No spaces allowed";
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch (err) {
+      console.log(err.message);
     }
-
-    if (!editingUser && (!form.password || form.password.length < 8)) {
-      newErrors.password = "Password must be at least 8 characters";
-    }
-
-    if (!form.role) newErrors.role = "Required";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
-  // ---------------- OPEN MODAL ----------------
+  // ---------------- MODAL ----------------
   const handleOpen = (user = null) => {
     setEditingUser(user);
 
@@ -117,15 +136,14 @@ function UsersPage() {
         : {
             firstName: "",
             lastName: "",
+            username: "",
             age: "",
             gender: "",
-            contactNumber: "",
-            email: "",
-            role: "",
-            username: "",
-            password: "",
+            contactNumber: "+639",
             address: "",
-            status: "Active",
+            email: "",
+            password: "",
+            type: "viewer",
           }
     );
 
@@ -146,112 +164,100 @@ function UsersPage() {
   };
 
   // ---------------- SAVE ----------------
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    if (editingUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === editingUser.id ? { ...u, ...form } : u
-        )
-      );
-    } else {
-      const newId =
-        users.length > 0
-          ? Math.max(...users.map((u) => u.id)) + 1
-          : 1;
+    try {
+      const token = localStorage.getItem("token");
 
-      setUsers((prev) => [...prev, { id: newId, ...form }]);
-    }
+      const payload = {
+        ...form,
+        age: Number(form.age),
+      };
 
-    handleClose();
-  };
-
-  // ---------------- DELETE ----------------
-  const handleDelete = (id) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-  };
-
-  // ---------------- SEARCH + FILTER + SORT ----------------
-  const filteredUsers = users
-    .filter((u) => {
-      const fullName = `${u.firstName} ${u.lastName}`.toLowerCase();
-      const searchValue = search.toLowerCase();
-
-      const searchMatch =
-        fullName.includes(searchValue) ||
-        u.email?.toLowerCase().includes(searchValue) ||
-        u.username?.toLowerCase().includes(searchValue);
-
-      const roleMatch = filters.role ? u.role === filters.role : true;
-      const statusMatch = filters.status ? u.status === filters.status : true;
-
-      return searchMatch && roleMatch && statusMatch;
-    })
-    .sort((a, b) => {
-      if (sortBy === "name") {
-        return `${a.firstName} ${a.lastName}`.localeCompare(
-          `${b.firstName} ${b.lastName}`
+      if (editingUser) {
+        await axios.put(
+          `http://localhost:8000/api/users/${editingUser.id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
+      } else {
+        await axios.post("http://localhost:8000/api/users", payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       }
 
-      if (sortBy === "age") {
-        return Number(a.age) - Number(b.age);
-      }
+      const res = await axios.get("http://localhost:8000/api/users", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      if (sortBy === "role") {
-        return a.role.localeCompare(b.role);
-      }
+      setUsers(
+        res.data.users.map((user) => ({
+          id: user._id,
+          userId: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          username: user.username,
+          email: user.email,
+          role: user.type || "N/A",
+          status: user.isActive ? "Active" : "Disabled",
+        }))
+      );
 
-      return 0;
-    });
+      handleClose();
+    } catch (err) {
+      console.log(err.response?.data || err.message);
+    }
+  };
+
+  // ---------------- FILTER ----------------
+  const filteredUsers = users.filter((u) => {
+    const s = search.toLowerCase();
+    return (
+      `${u.firstName} ${u.lastName}`.toLowerCase().includes(s) ||
+      u.email?.toLowerCase().includes(s) ||
+      u.username?.toLowerCase().includes(s)
+    );
+  });
 
   // ---------------- COLUMNS ----------------
   const columns = [
-    { field: "id", headerName: "ID", width: 70 },
-    { field: "firstName", headerName: "First Name", width: 130 },
-    { field: "lastName", headerName: "Last Name", width: 130 },
+    { field: "userId", headerName: "User ID", width: 220 },
+    { field: "firstName", headerName: "First Name", width: 140 },
+    { field: "lastName", headerName: "Last Name", width: 140 },
+    { field: "username", headerName: "Username", width: 140 },
     { field: "email", headerName: "Email", width: 200 },
     { field: "role", headerName: "Role", width: 120 },
 
     {
       field: "status",
       headerName: "Status",
-      width: 160,
-      renderCell: (params) => {
-        const isActive = params.value === "Active";
-
-        return (
-          <Button
-            size="small"
-            variant="contained"
-            color={isActive ? "success" : "error"}
-            onClick={() => handleToggleStatus(params.row.id)}
-          >
-            {isActive ? "Active" : "Disabled"}
-          </Button>
-        );
-      },
+      width: 140,
+      renderCell: (params) => (
+        <Button
+          variant="contained"
+          size="small"
+          color={params.value === "Active" ? "success" : "error"}
+          onClick={() => handleToggleStatus(params.row.id)}
+        >
+          {params.value}
+        </Button>
+      ),
     },
 
     {
       field: "actions",
       headerName: "Actions",
-      width: 180,
+      width: 220,
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => handleOpen(params.row)}
-          >
+          <Button size="small" onClick={() => handleOpen(params.row)}>
             Edit
           </Button>
 
           <Button
             size="small"
             color="error"
-            variant="outlined"
             onClick={() => handleDelete(params.row.id)}
           >
             Delete
@@ -263,65 +269,14 @@ function UsersPage() {
 
   // ---------------- UI ----------------
   return (
-    <Box sx={{ p: 3, background: "#f4f6f8", minHeight: "100vh" }}>
-      <Typography variant="h4" fontWeight="bold" mb={2}>
-        User Management
-      </Typography>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4">User Management</Typography>
 
-      <Button variant="contained" onClick={() => handleOpen()} sx={{ mb: 2 }}>
+      <Button sx={{ mt: 2 }} variant="contained" onClick={() => handleOpen()}>
         Add User
       </Button>
 
-      {/* SEARCH + FILTER + SORT */}
-      <Stack direction="row" spacing={2} mb={2}>
-        <TextField
-          label="Search users..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          fullWidth
-        />
-
-        <TextField
-          select
-          label="Role"
-          value={filters.role}
-          onChange={(e) =>
-            setFilters((p) => ({ ...p, role: e.target.value }))
-          }
-        >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="Admin">Admin</MenuItem>
-          <MenuItem value="Engineer">Engineer</MenuItem>
-          <MenuItem value="Architect">Architect</MenuItem>
-          <MenuItem value="Designer">Designer</MenuItem>
-        </TextField>
-
-        <TextField
-          select
-          label="Status"
-          value={filters.status}
-          onChange={(e) =>
-            setFilters((p) => ({ ...p, status: e.target.value }))
-          }
-        >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="Active">Active</MenuItem>
-          <MenuItem value="Inactive">Inactive</MenuItem>
-        </TextField>
-
-        <TextField
-          select
-          label="Sort By"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-        >
-          <MenuItem value="none">None</MenuItem>
-          <MenuItem value="name">Name</MenuItem>
-          <MenuItem value="role">Role</MenuItem>
-        </TextField>
-      </Stack>
-
-      <Card>
+      <Card sx={{ mt: 2 }}>
         <CardContent>
           <Box sx={{ height: 450 }}>
             <DataGrid rows={filteredUsers} columns={columns} />
@@ -329,110 +284,63 @@ function UsersPage() {
         </CardContent>
       </Card>
 
-      {/* MODAL (unchanged working version) */}
-      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
-        <DialogTitle>
-          {editingUser ? "Edit User" : "Add User"}
-        </DialogTitle>
+      {/* MODAL */}
+      <Dialog open={open} onClose={handleClose} fullWidth>
+        <DialogTitle>{editingUser ? "Edit User" : "Add User"}</DialogTitle>
 
         <DialogContent>
           <Stack spacing={2} mt={1}>
-            <TextField
-              label="First Name"
-              name="firstName"
-              value={form.firstName}
-              onChange={handleChange}
-              error={!!errors.firstName}
-              helperText={errors.firstName}
-              fullWidth
-            />
-
-            <TextField
-              label="Last Name"
-              name="lastName"
-              value={form.lastName}
-              onChange={handleChange}
-              error={!!errors.lastName}
-              helperText={errors.lastName}
-              fullWidth
-            />
-
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              <TextField
-                label="Age"
-                name="age"
-                value={form.age}
-                onChange={handleChange}
-                error={!!errors.age}
-                helperText={errors.age}
-                fullWidth
-              />
-
-              <TextField
-                label="Contact Number (+63XXXXXXXXXX)"
-                name="contactNumber"
-                value={form.contactNumber}
-                onChange={handleChange}
-                error={!!errors.contactNumber}
-                helperText={errors.contactNumber}
-                fullWidth
-              />
-            </Stack>
-
-            <TextField
-              label="Email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              error={!!errors.email}
-              helperText={errors.email}
-              fullWidth
-            />
-
-            <TextField
-              label="Username"
-              name="username"
-              value={form.username}
-              onChange={handleChange}
-              error={!!errors.username}
-              helperText={errors.username}
-              fullWidth
-            />
-
-            {!editingUser && (
-              <TextField
-                label="Password"
-                name="password"
-                type="password"
-                value={form.password}
-                onChange={handleChange}
-                error={!!errors.password}
-                helperText={errors.password}
-                fullWidth
-              />
-            )}
+            <TextField name="firstName" label="First Name" onChange={handleChange} error={!!errors.firstName} helperText={errors.firstName} />
+            <TextField name="lastName" label="Last Name" onChange={handleChange} error={!!errors.lastName} helperText={errors.lastName} />
+            <TextField name="username" label="Username" onChange={handleChange} error={!!errors.username} helperText={errors.username} />
+            <TextField name="age" label="Age" type="number" onChange={handleChange} error={!!errors.age} helperText={errors.age} />
 
             <TextField
               select
-              label="Role"
-              name="role"
-              value={form.role}
+              name="gender"
+              label="Gender"
+              value={form.gender}
               onChange={handleChange}
-              error={!!errors.role}
-              helperText={errors.role}
-              fullWidth
+              error={!!errors.gender}
+              helperText={errors.gender}
             >
-              <MenuItem value="Admin">Admin</MenuItem>
-              <MenuItem value="Engineer">Engineer</MenuItem>
-              <MenuItem value="Architect">Architect</MenuItem>
-              <MenuItem value="Designer">Designer</MenuItem>
+              <MenuItem value="">Select Gender</MenuItem>
+              <MenuItem value="Male">Male</MenuItem>
+              <MenuItem value="Female">Female</MenuItem>
+            </TextField>
+
+            <TextField
+              name="contactNumber"
+              label="Contact Number"
+              value={form.contactNumber}
+              onChange={(e) => {
+                let value = e.target.value;
+                if (!value.startsWith("+639")) value = "+639";
+                const digitsOnly = "+639" + value.slice(4).replace(/\D/g, "");
+                setForm((prev) => ({
+                  ...prev,
+                  contactNumber: digitsOnly.slice(0, 13),
+                }));
+              }}
+              error={!!errors.contactNumber}
+              helperText={errors.contactNumber}
+            />
+
+            <TextField name="address" label="Address" onChange={handleChange} error={!!errors.address} helperText={errors.address} />
+            <TextField name="email" label="Email" type="email" onChange={handleChange} error={!!errors.email} helperText={errors.email} />
+            <TextField name="password" label="Password" type="password" onChange={handleChange} error={!!errors.password} helperText={errors.password} />
+
+            <TextField select name="type" label="Role" value={form.type} onChange={handleChange}>
+              <MenuItem value="viewer">Viewer</MenuItem>
+              <MenuItem value="editor">Editor</MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
             </TextField>
           </Stack>
         </DialogContent>
 
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit}>
+          <Button onClick={handleSubmit} variant="contained">
             Save
           </Button>
         </DialogActions>
@@ -441,4 +349,4 @@ function UsersPage() {
   );
 }
 
-export default UsersPage;
+export default UsersPage; 

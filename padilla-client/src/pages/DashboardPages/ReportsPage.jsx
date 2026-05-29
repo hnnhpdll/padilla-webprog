@@ -13,7 +13,7 @@ import {
   Button
 } from "@mui/material";
 
-// ---------------- SAMPLE DATA ----------------
+// ---------------- SAMPLE DATA (make sure these exist) ----------------
 const reportRows = [
   { id: 1, department: "Residential Zone", users: 120, active: 90 },
   { id: 2, department: "CBD", users: 250, active: 210 },
@@ -33,8 +33,6 @@ function ReportsPage() {
   const totalActive = reportRows.reduce((sum, r) => sum + r.active, 0);
 
   const [chartReady, setChartReady] = useState(false);
-
- 
   const printRef = useRef(null);
 
   const handlePrint = () => {
@@ -62,11 +60,6 @@ function ReportsPage() {
           <meta charset="UTF-8" />
           <title>Urban Planning Report</title>
           ${headMarkup}
-          <style>
-            body { font-family: Arial; margin: 0; padding: 20px; }
-            h1 { margin-bottom: 5px; }
-            p { color: gray; }
-          </style>
         </head>
         <body>
           <h1>Urban Planning Reports</h1>
@@ -87,13 +80,7 @@ function ReportsPage() {
   }, []);
 
   return (
-    <Box
-      sx={{
-        p: 3,
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #f4f6f8 0%, #eef2f7 100%)",
-      }}
-    >
+    <Box sx={{ p: 3, minHeight: "100vh" }}>
       {/* HEADER */}
       <Box
         sx={{
@@ -116,13 +103,12 @@ function ReportsPage() {
           </Typography>
         </Box>
 
-        {/* ✅ EXPORT BUTTON */}
         <Button variant="contained" onClick={handlePrint}>
           Export
         </Button>
       </Box>
 
-      {/* ✅ EVERYTHING INSIDE HERE WILL BE PRINTED */}
+      {/* PRINT AREA */}
       <Box ref={printRef}>
         {/* KPI CARDS */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -135,7 +121,7 @@ function ReportsPage() {
             },
           ].map((item, index) => (
             <Grid item xs={12} sm={6} md={4} key={index}>
-              <Card sx={{ borderRadius: 3 }}>
+              <Card>
                 <CardContent>
                   <Typography sx={{ color: "gray", fontSize: 14 }}>
                     {item.label}
@@ -150,7 +136,7 @@ function ReportsPage() {
         </Grid>
 
         {/* BAR CHART */}
-        <Card sx={{ mb: 3, borderRadius: 3 }}>
+        <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" fontWeight="bold">
               Urban Zone Utilization
@@ -176,7 +162,7 @@ function ReportsPage() {
         </Card>
 
         {/* PIE CHART */}
-        <Card sx={{ mb: 3, borderRadius: 3 }}>
+        <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" fontWeight="bold">
               Zone Distribution
@@ -202,7 +188,7 @@ function ReportsPage() {
         </Card>
 
         {/* TABLE */}
-        <Card sx={{ borderRadius: 3 }}>
+        <Card>
           <CardContent>
             <Typography variant="h6" fontWeight="bold">
               Detailed Report
