@@ -10,7 +10,7 @@ const articleRoutes = require("./routes/articleRoutes");
 
 const app = express();
 
-// DB
+// Connect to MongoDB
 connectDB();
 
 // Middleware
@@ -28,14 +28,22 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/users", userRoutes);
 app.use("/api/articles", articleRoutes);
 
-// Error handler
+// Health Check Route
+app.get("/", (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "Padilla Server Running"
+    });
+});
+
+// Error Handler
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({
+        success: false,
+        message: "Server Error"
+    });
 });
 
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+// For Vercel
+module.exports = app;
